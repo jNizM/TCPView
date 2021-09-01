@@ -25,6 +25,7 @@ Main.MarginX := 0
 Main.MarginY := 0
 Main.BackColor := "FFFFFF"
 Main.SetFont("s10", "Segoe UI")
+
 PIC1 := Main.AddPicture("xm ym w1250 h2 BackgroundTrans", "HBITMAP:*" hhr)
 CB1  := Main.AddCheckBox("xm+5 ym+4 w80 h27 0x1000 Checked", "TCP v4")
 CB2  := Main.AddCheckBox("x+4 yp w80 h27 0x1000", "TCP v6")
@@ -44,17 +45,19 @@ ImageListID2 := IL_Create(10, 10, true)
 LV.SetImageList(ImageListID1)
 LV.SetImageList(ImageListID2)
 LV.OnEvent("ContextMenu", LV_ContextMenu)
+
 SB := Main.AddStatusBar("")
 SB.SetParts(120, 120, 120, 120, 120, 120)
 loop SB_Info.Length
 	SB.SetText(SB_Info[A_Index], A_Index)
+
 Main.OnEvent("Size", Gui_Size)
 Main.OnEvent("Close", Gui_Close)
 Main.Show()
 SetExplorerTheme(LV.Hwnd)
 HideFocusBorder(Main.Hwnd)
 
-SetTimer NetStat, 2000
+SetTimer NetStat, -1000
 
 
 ; WINDOW EVENTS =================================================================================================================
@@ -262,9 +265,9 @@ GetExtendedTcpTable(PROCESS_TABLE)
 				Offset := 8 + ((A_Index - 1) * 160)
 				TCP_ROW["State"]           := TCP_STATE[NumGet(TCP, Offset, "uint")]
 				TCP_ROW["LocalAddr"]       := InetNtopW(AF_INET, TCP.Ptr + Offset + 4)
-				TCP_ROW["LocalPort"]       := DllCall("ws2_32\ntohs", "ushort", NumGet(TCP, Offset + 8, "uint"), "ushort")
+				TCP_ROW["LocalPort"]       := ntohs(NumGet(TCP, Offset + 8, "uint"))
 				TCP_ROW["RemoteAddr"]      := InetNtopW(AF_INET, TCP.Ptr + Offset + 12)
-				TCP_ROW["RemotePort"]      := DllCall("ws2_32\ntohs", "ushort", NumGet(TCP, Offset + 16, "uint"), "ushort")
+				TCP_ROW["RemotePort"]      := ntohs(NumGet(TCP, Offset + 16, "uint"))
 				TCP_ROW["OwningPID"]       := OwningPID := NumGet(TCP, Offset + 20, "uint")
 				TCP_ROW["ProcessName"]     := OwningPID ? PROCESS_TABLE[OwningPID]["ExeFile"] : "[Time Wait]"
 				TCP_ROW["CreateTimestamp"] := CreateTime(NumGet(TCP, Offset + 28, "uint") << 32 | NumGet(TCP, Offset + 32, "uint"))
@@ -301,11 +304,11 @@ GetExtendedTcp6Table(PROCESS_TABLE)
 				TCP6_ROW := Map(), ModuleName := ""
 				Offset := 8 + ((A_Index - 1) * 192)
 				TCP6_ROW["LocalAddr"]       := InetNtopW(AF_INET6, TCP6.Ptr + Offset)
-				TCP6_ROW["LocalScopeId"]    := DllCall("ws2_32\ntohl", "uint", NumGet(TCP6, Offset + 16, "uint"), "uint")
-				TCP6_ROW["LocalPort"]       := DllCall("ws2_32\ntohs", "ushort", NumGet(TCP6, Offset + 20, "uint"), "ushort")
+				TCP6_ROW["LocalScopeId"]    := ntohl(NumGet(TCP6, Offset + 16, "uint"))
+				TCP6_ROW["LocalPort"]       := ntohs(NumGet(TCP6, Offset + 20, "uint"))
 				TCP6_ROW["RemoteAddr"]      := InetNtopW(AF_INET6, TCP6.Ptr + Offset + 24)
-				TCP6_ROW["RemoteScopeId"]   := DllCall("ws2_32\ntohl", "uint", NumGet(TCP6, Offset + 40, "uint"), "uint")
-				TCP6_ROW["RemotePort"]      := DllCall("ws2_32\ntohs", "ushort", NumGet(TCP6, Offset + 44, "uint"), "ushort")
+				TCP6_ROW["RemoteScopeId"]   := ntohl(NumGet(TCP6, Offset + 40, "uint"))
+				TCP6_ROW["RemotePort"]      := ntohs(NumGet(TCP6, Offset + 44, "uint"))
 				TCP6_ROW["State"]           := TCP_STATE[NumGet(TCP6, Offset + 48, "uint")]
 				TCP6_ROW["OwningPID"]       := OwningPID := NumGet(TCP6, Offset + 52, "uint")
 				TCP6_ROW["ProcessName"]     := OwningPID ? PROCESS_TABLE[OwningPID]["ExeFile"] : "[Time Wait]"
@@ -342,7 +345,7 @@ GetExtendedUdpTable(PROCESS_TABLE)
 				UDP_ROW := Map(), ModuleName := ""
 				Offset := 8 + ((A_Index - 1) * 160)
 				UDP_ROW["LocalAddr"]       := InetNtopW(AF_INET, UDP.Ptr + Offset)
-				UDP_ROW["LocalPort"]       := DllCall("ws2_32\ntohs", "ushort", NumGet(UDP, Offset + 4, "uint"), "ushort")
+				UDP_ROW["LocalPort"]       := ntohs(NumGet(UDP, Offset + 4, "uint"))
 				UDP_ROW["OwningPID"]       := OwningPID := NumGet(UDP, Offset + 8, "uint")
 				UDP_ROW["ProcessName"]     := OwningPID ? PROCESS_TABLE[OwningPID]["ExeFile"] : "[Time Wait]"
 				UDP_ROW["CreateTimestamp"] := CreateTime(NumGet(UDP, Offset + 20, "uint") << 32 | NumGet(UDP, Offset + 24, "uint"))
@@ -379,8 +382,8 @@ GetExtendedUdp6Table(PROCESS_TABLE)
 				Offset := 8 + ((A_Index - 1) * 176)
 				UDP6_ROW["LocalAddr"]       := NumGet(UDP6, Offset, "uchar")
 				UDP6_ROW["LocalAddr"]       := InetNtopW(AF_INET6, UDP6.Ptr + Offset)
-				UDP6_ROW["LocalScopeId"]    := DllCall("ws2_32\ntohl", "uint", NumGet(UDP6, Offset + 16, "uint"), "uint")
-				UDP6_ROW["LocalPort"]       := DllCall("ws2_32\ntohs", "ushort", NumGet(UDP6, Offset + 20, "uint"), "ushort")
+				UDP6_ROW["LocalScopeId"]    := ntohl(NumGet(UDP6, Offset + 16, "uint"))
+				UDP6_ROW["LocalPort"]       := ntohs(NumGet(UDP6, Offset + 20, "uint"))
 				UDP6_ROW["OwningPID"]       := OwningPID := NumGet(UDP6, Offset + 24, "uint")
 				UDP6_ROW["ProcessName"]     := OwningPID ? PROCESS_TABLE[OwningPID]["ExeFile"] : "[Time Wait]"
 				UDP6_ROW["CreateTimestamp"] := CreateTime(NumGet(UDP6, Offset + 36, "uint") << 32 | NumGet(UDP6, Offset + 40, "uint"))
@@ -470,6 +473,18 @@ InetNtopW(Family, Addr)
 	if (DllCall("ws2_32\InetNtopW", "int", Family, "ptr", Addr, "str", AddrString, "uint", Size))
 		return AddrString
 	return ""
+}
+
+
+ntohl(netlong)
+{
+	return DllCall("ws2_32\ntohl", "uint", netlong, "uint")
+}
+
+
+ntohs(netshort)
+{
+	return DllCall("ws2_32\ntohs", "ushort", netshort, "ushort")
 }
 
 
