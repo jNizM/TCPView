@@ -8,7 +8,7 @@
 
 ; GLOBALS =======================================================================================================================
 
-app := Map("name", "TCPView", "version", "0.0.1", "release", "2021-08-30", "author", "jNizM", "licence", "MIT")
+app := Map("name", "TCPView", "version", "0.0.2", "release", "2021-08-30", "author", "jNizM", "licence", "MIT")
 
 LV_Header  := ["Process Name", "Process ID", "Protocol", "State", "Local Address", "Local Port", "Remote Address", "Remote Port", "Create Time", "Module Name"]
 LV_Options := ["150 Text Left", "100 Integer Right", "80 Text Center", "80 Text Left", "150 Integer Left", "90 Integer Right", "150 Integer Left", "90 Integer Right", "140 Text Right", "180 Text Left"]
@@ -18,7 +18,8 @@ SB_Info    := [" Endpoints:", "Established:", "Listening:", "Time Wait:", "Close
 ; GUI ===========================================================================================================================
 
 OnMessage 0x0135, WM_CTLCOLORBTN
-hhr := DllCall("gdi32\CreateBitmap", "int", 1, "int", 2, "int", 0x1, "int", 32, "int64*", 0x7f0f0f0f7ff0f0f0, "ptr")
+hhr1 := DllCall("gdi32\CreateBitmap", "int", 1, "int", 2, "int", 0x1, "int", 32, "int64*", 0x7f5a5a5a7fa5a5a5, "ptr")
+hhr2 := DllCall("gdi32\CreateBitmap", "int", 1, "int", 2, "int", 0x1, "int", 32, "int64*", 0x7fcfcfcf7ffcfcfc, "ptr")
 
 Main   := Gui("+Resize", app["name"])
 Main.MarginX := 0
@@ -26,8 +27,8 @@ Main.MarginY := 0
 Main.BackColor := "FFFFFF"
 Main.SetFont("s10", "Segoe UI")
 
-PIC1 := Main.AddPicture("xm ym w1250 h2 BackgroundTrans", "HBITMAP:*" hhr)
-CB1  := Main.AddCheckBox("xm+5 ym+4 w80 h27 0x1000 Checked", "TCP v4")
+PIC1 := Main.AddPicture("xm ym w1250 h1 BackgroundTrans", "HBITMAP:*" hhr1)
+CB1  := Main.AddCheckBox("xm+5 y+4 w80 h27 0x1000 Checked", "TCP v4")
 CB2  := Main.AddCheckBox("x+4 yp w80 h27 0x1000", "TCP v6")
 CB3  := Main.AddCheckBox("x+4 yp w80 h27 0x1000", "UDP v4")
 CB4  := Main.AddCheckBox("x+4 yp w80 h27 0x1000", "UDP v6")
@@ -37,7 +38,8 @@ DDL1 := Main.AddDropDownList("x+5 yp+1 w100 Choose2", ["2 Seconds", "5 Seconds",
 DDL1.OnEvent("Change", DDL1_Change)
 Main.SetFont("s9", "Segoe UI")
 
-LV := Main.AddListView("w1250 r30 xm-1 y+3 -LV0x10 LV0x10000", LV_Header)
+PIC2 := Main.AddPicture("xm y+4 w1250 h2 BackgroundTrans", "HBITMAP:*" hhr2)
+LV := Main.AddListView("w1250 r30 xm-1 y+0 -LV0x10 LV0x10000 -E0x0200", LV_Header)
 loop LV_Options.Length
 	LV.ModifyCol(A_Index, LV_Options[A_Index])
 ImageListID1 := IL_Create(10)
@@ -67,7 +69,8 @@ Gui_Size(thisGui, MinMax, Width, Height)
 	if (MinMax = -1)
 		return
 	PIC1.Move(,, Width)
-	LV.Move(,, Width + 3, Height - 56)
+	PIC2.Move(,, Width)
+	LV.Move(,, Width + 3, Height - 61)
 }
 
 
