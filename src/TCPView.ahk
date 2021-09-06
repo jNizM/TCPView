@@ -8,7 +8,7 @@
 
 ; GLOBALS =======================================================================================================================
 
-app := Map("name", "TCPView", "version", "0.3.1", "release", "2021-09-06", "author", "jNizM", "licence", "MIT")
+app := Map("name", "TCPView", "version", "0.3.2", "release", "2021-09-06", "author", "jNizM", "licence", "MIT")
 
 LV_Header  := ["Process Name", "Process ID", "Protocol", "State", "Local Address", "Local Port", "Remote Address", "Remote Port", "Create Time", "Module Name"]
 LV_Options := ["150 Text Left", "100 Integer Right", "80 Text Center", "80 Text Left", "150 Integer Left", "90 Integer Right", "150 Integer Left", "90 Integer Right", "140 Text Right", "180 Text Left"]
@@ -525,7 +525,7 @@ CreateTime(FileTime)
 NetStat()
 {
 	Interval := (DDL1.Value = 1) ? 2000 : (DDL1.Value = 2) ? 5000 : (DDL1.Value = 3) ? 10000 : 5000
-	LVCount := 0, TCPCount := 0, TCP6Count := 0, UDPCount := 0, UDP6Count := 0, LV_TABLE := []
+	LV_TABLE := []
 	SetTimer NetStat, Interval
 
 	if !(PROCESS_TABLE := Process32())
@@ -543,7 +543,6 @@ NetStat()
 			MsgBox("GetExtendedTcpTable failed", "TCPView Error", "T5 16")
 			ExitApp
 		}
-		TCPCount := TCP_TABLE.Count
 		for i, v in TCP_TABLE
 			LV_TABLE.Push(TCP_TABLE[i])
 	}
@@ -556,7 +555,6 @@ NetStat()
 			MsgBox("GetExtendedTcp6Table failed", "TCPView Error", "T5 16")
 			ExitApp
 		}
-		TCP6Count := TCP6_TABLE.Count
 		for i, v in TCP6_TABLE
 			LV_TABLE.Push(TCP6_TABLE[i])
 	}
@@ -569,7 +567,6 @@ NetStat()
 			MsgBox("GetExtendedUdpTable failed", "TCPView Error", "T5 16")
 			ExitApp
 		}
-		UDPCount := UDP_TABLE.Count
 		for i, v in UDP_TABLE
 			LV_TABLE.Push(UDP_TABLE[i])
 	}
@@ -582,14 +579,14 @@ NetStat()
 			MsgBox("GetExtendedUdp6Table failed", "TCPView Error", "T5 16")
 			ExitApp
 		}
-		UDP6Count := UDP6_TABLE.Count
 		for i, v in UDP6_TABLE
 			LV_TABLE.Push(UDP6_TABLE[i])
 	}
 
 	LV.Opt("-Redraw")
 
-	loop LV_TABLE.Length
+	TableEntries := LV_TABLE.Length
+	loop TableEntries
 	{
 		v := LV_TABLE[A_Index]
 		if (A_Index > LV.GetCount())
@@ -598,9 +595,12 @@ NetStat()
 			LV.Modify(A_Index, "Icon" . v["IconNumber"], v["ProcessName"], v["OwningPID"], v["Protocol"], v["State"], v["LocalAddr"], v["LocalPort"], v["RemoteAddr"], v["RemotePort"], v["CreateTimestamp"], v["ModuleName"])
 	}
 
-	if ((Diff := LV.GetCount() - (TCPCount + TCP6Count + UDPCount + UDP6Count)) > 0)
-		loop Diff > 0
-			LV.Delete(LV.GetCount() - A_Index)
+	GetCount := LV.GetCount()
+	if (TableEntries = 0)
+		LV.Delete()
+	if (GetCount > TableEntries)
+		loop GetCount - TableEntries
+			LV.Delete(GetCount - A_Index + 1)
 
 	LV.Opt("+Redraw")
 
@@ -623,5 +623,6 @@ NetStat()
 	SB.SetText("Close Wait: "  SB_C5, 5)
 	SB.SetText("Update: " StrLower(SubStr(DDL1.Text, 1, -4)), 6)
 }
+
 
 ; ===============================================================================================================================
