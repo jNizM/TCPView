@@ -5,6 +5,7 @@
 ## Features
 * Shows TCP (v4 and v6) connections.
 * Shows UDP (v4 and v6) connections.
+* Resolves Remote IP to Hostname
 * Export as .csv
 
 
@@ -15,6 +16,8 @@
 
 ## Contributing
 * thanks to Bentschi for NetStat()
+* thanks 'just me' for DnsQuery()
+* thanks to swagfag
 * thanks to AutoHotkey Community
 
 

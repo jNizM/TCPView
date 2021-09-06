@@ -1,18 +1,21 @@
 ﻿; SCRIPT DIRECTIVES =============================================================================================================
 
 #Requires AutoHotkey v2.0-beta.1
+#DllLoad "dnsapi.dll"
 #DllLoad "iphlpapi.dll"
+#DllLoad "ntdll.dll"
 #DllLoad "shell32.dll"
 #DllLoad "ws2_32.dll"
 
 
 ; GLOBALS =======================================================================================================================
 
-app := Map("name", "TCPView", "version", "0.3.2", "release", "2021-09-06", "author", "jNizM", "licence", "MIT")
+app := Map("name", "TCPView", "version", "0.4", "release", "2021-09-06", "author", "jNizM", "licence", "MIT")
 
 LV_Header  := ["Process Name", "Process ID", "Protocol", "State", "Local Address", "Local Port", "Remote Address", "Remote Port", "Create Time", "Module Name"]
 LV_Options := ["150 Text Left", "100 Integer Right", "80 Text Center", "80 Text Left", "150 Integer Left", "90 Integer Right", "150 Integer Left", "90 Integer Right", "140 Text Right", "180 Text Left"]
 SB_Info    := [" Endpoints:", "Established:", "Listening:", "Time Wait:", "Close Wait:", "Update:", "States: (All)"]
+PORTS      := Map(22, "ssh", 80, "http", 135, "epmap", 443, "https", 445, "microsoft-ds")
 SortCol    := 0
 
 
@@ -37,6 +40,7 @@ CB5  := Main.AddCheckBox("x+4 yp w80 h27 0x1000 Checked", "Pause")
 CB5.OnEvent("Click", CB_Click)
 DDL1 := Main.AddDropDownList("x+5 yp+1 w100 Choose2", ["2 Seconds", "5 Seconds", "10 Seconds"])
 DDL1.OnEvent("Change", DDL1_Change)
+CB6  := Main.AddCheckBox("x+4 yp-1 w80 h27 0x1000", "Resolve")
 Main.SetFont("s9", "Segoe UI")
 
 PIC2 := Main.AddPicture("xm y+4 w1250 h2 BackgroundTrans", "HBITMAP:*" hhr2)
@@ -247,7 +251,7 @@ Process32()
 }
 
 
-GetExtendedTcpTable(PROCESS_TABLE)
+GetExtendedTcpTable(PROCESS_TABLE, Resolve := false)
 {
 	static AF_INET := 2
 	static ERROR_INSUFFICIENT_BUFFER := 122
@@ -270,8 +274,11 @@ GetExtendedTcpTable(PROCESS_TABLE)
 				TCP_ROW["State"]           := TCP_STATE[NumGet(TCP, Offset, "uint")]
 				TCP_ROW["LocalAddr"]       := InetNtopW(AF_INET, TCP.Ptr + Offset + 4)
 				TCP_ROW["LocalPort"]       := ntohs(NumGet(TCP, Offset + 8, "uint"))
-				TCP_ROW["RemoteAddr"]      := InetNtopW(AF_INET, TCP.Ptr + Offset + 12)
-				TCP_ROW["RemotePort"]      := ntohs(NumGet(TCP, Offset + 16, "uint"))
+				RemoteAddr                 := InetNtopW(AF_INET, TCP.Ptr + Offset + 12)
+				RemoteAddrResolved         := Resolve ? DnsQueryW(Reverse_IPv4(RemoteAddr)) : RemoteAddr
+				TCP_ROW["RemoteAddr"]      := RemoteAddrResolved ? RemoteAddrResolved : RemoteAddr
+				RemotePort                 := ntohs(NumGet(TCP, Offset + 16, "uint"))
+				TCP_ROW["RemotePort"]      := (Resolve && PORTS.Has(RemotePort)) ? PORTS[RemotePort] : RemotePort
 				TCP_ROW["OwningPID"]       := OwningPID := NumGet(TCP, Offset + 20, "uint")
 				TCP_ROW["ProcessName"]     := OwningPID ? PROCESS_TABLE[OwningPID]["ExeFile"] : "[Time Wait]"
 				TCP_ROW["CreateTimestamp"] := CreateTime(NumGet(TCP, Offset + 28, "uint") << 32 | NumGet(TCP, Offset + 32, "uint"))
@@ -287,7 +294,7 @@ GetExtendedTcpTable(PROCESS_TABLE)
 }
 
 
-GetExtendedTcp6Table(PROCESS_TABLE)
+GetExtendedTcp6Table(PROCESS_TABLE, Resolve := false)
 {
 	static AF_INET6 := 23
 	static ERROR_INSUFFICIENT_BUFFER := 122
@@ -310,7 +317,9 @@ GetExtendedTcp6Table(PROCESS_TABLE)
 				TCP6_ROW["LocalAddr"]       := InetNtopW(AF_INET6, TCP6.Ptr + Offset)
 				TCP6_ROW["LocalScopeId"]    := ntohl(NumGet(TCP6, Offset + 16, "uint"))
 				TCP6_ROW["LocalPort"]       := ntohs(NumGet(TCP6, Offset + 20, "uint"))
-				TCP6_ROW["RemoteAddr"]      := InetNtopW(AF_INET6, TCP6.Ptr + Offset + 24)
+				RemoteAddr                  := InetNtopW(AF_INET6, TCP6.Ptr + Offset + 24)
+				RemoteAddrResolved          := Resolve ? DnsQueryW(Reverse_IPv4(RemoteAddr)) : RemoteAddr
+				TCP6_ROW["RemoteAddr"]      := RemoteAddrResolved ? RemoteAddrResolved : RemoteAddr
 				TCP6_ROW["RemoteScopeId"]   := ntohl(NumGet(TCP6, Offset + 40, "uint"))
 				TCP6_ROW["RemotePort"]      := ntohs(NumGet(TCP6, Offset + 44, "uint"))
 				TCP6_ROW["State"]           := TCP_STATE[NumGet(TCP6, Offset + 48, "uint")]
@@ -486,6 +495,30 @@ InetNtopW(Family, Addr)
 }
 
 
+htonl(hostlong)
+{
+	return DllCall("ws2_32\htonl", "uint", hostlong, "uint")
+}
+
+
+htons(hostshort)
+{
+	return DllCall("ws2_32\htons", "ushort", hostshort, "ushort")
+}
+
+
+inet_addr(cp)
+{
+	return DllCall("ws2_32\inet_addr", "astr", cp, "uint")
+}
+
+
+inet_ntoa(addr)
+{
+	return DllCall("ws2_32\inet_ntoa", "uint", addr, "astr")
+}
+
+
 ntohl(netlong)
 {
 	return DllCall("ws2_32\ntohl", "uint", netlong, "uint")
@@ -495,6 +528,92 @@ ntohl(netlong)
 ntohs(netshort)
 {
 	return DllCall("ws2_32\ntohs", "ushort", netshort, "ushort")
+}
+
+
+RtlIpv4AddressToStringW(IN_ADDR)
+{
+	Size := VarSetStrCapacity(&StringAddr, 32)
+	if (DllCall("ntdll\RtlIpv4AddressToStringW", "ptr*", IN_ADDR, "str", StringAddr))
+		return StringAddr
+	return false
+}
+
+
+RtlIpv4StringToAddressW(AddrString)
+{
+	static STATUS_SUCCESS := 0
+
+	if (DllCall("ntdll\RtlIpv4StringToAddressW", "str", AddrString, "int", 0, "ptr*", 0, "ptr*", &IN_ADDR := 0) = STATUS_SUCCESS)
+		return IN_ADDR
+	return false
+}
+
+
+RtlIpv6StringToAddressW(AddrString)
+{
+	static STATUS_SUCCESS := 0
+
+	IN6_ADDR := Buffer(16, 0)
+	if (DllCall("ntdll\RtlIpv6StringToAddressW", "str", AddrString, "ptr*", 0, "ptr", IN6_ADDR) = STATUS_SUCCESS)
+		return IN6_ADDR
+	return false
+}
+
+
+Reverse_IPv4(AddrString)
+{
+	if (IN_ADDR := RtlIpv4StringToAddressW(AddrString))
+	{
+		IN_ADDR := htonl(IN_ADDR)
+		if (StringAddr := RtlIpv4AddressToStringW(IN_ADDR))
+			return StringAddr ".in-addr.arpa"
+	}
+	return false
+}
+
+
+Reverse_IPv6(AddrString)
+{
+	if (IN6_ADDR := RtlIpv6StringToAddressW(AddrString))
+	{
+		VarSetStrCapacity(&StringAddr, 72)
+		loop size := 16
+		{
+			byte := NumGet(IN6_ADDR, size - A_Index, "uchar")
+			StringAddr .= Format("{:x}", (byte & 0x0F)) "." Format("{:x}", ((byte & 0xF0) >> 4)) "."
+		}
+		return StringAddr "ip6.arpa"
+	}
+	return false
+}
+
+
+DnsQueryW(RevIP)
+{
+	static DNS_TYPE_PTR := 0x000c
+
+	if (RevIP = "0.0.0.0") || (RevIP = "::") || (RevIP = false)
+		return false
+	if !(DllCall("dnsapi\DnsQuery_W", "str", RevIP, "short", DNS_TYPE_PTR, "uint", 0, "ptr", 0, "ptr*", &DNS_RECORD := 0, "ptr", 0))
+	{
+		if (NumGet(DNS_RECORD, A_PtrSize * 2, "ushort") = DNS_TYPE_PTR)
+		{
+			DNS_RECORD_LIST := []
+			addr := DNS_RECORD
+			while (addr)
+			{
+				DNS_RECORD_LIST.Push(StrGet(NumGet(addr, (A_PtrSize * 2) + 16, "ptr")))
+				addr := NumGet(addr, "ptr")
+			}
+			DllCall("dnsapi\DnsRecordListFree", "ptr", DNS_RECORD, "int", 1)
+			loop DNS_RECORD_LIST.Length
+				HOSTNAMES .= DNS_RECORD_LIST[A_Index] " | "
+			return SubStr(HOSTNAMES, 1, -3)
+		}
+		DllCall("dnsapi\DnsRecordListFree", "ptr", DNS_RECORD, "int", 1)
+	}
+	return false
 }
 
 
@@ -526,6 +645,7 @@ NetStat()
 {
 	Interval := (DDL1.Value = 1) ? 2000 : (DDL1.Value = 2) ? 5000 : (DDL1.Value = 3) ? 10000 : 5000
 	LV_TABLE := []
+	ResolveAddr := CB6.Value
 	SetTimer NetStat, Interval
 
 	if !(PROCESS_TABLE := Process32())
@@ -537,7 +657,7 @@ NetStat()
 
 	if (CB1.Value)
 	{
-		if !(TCP_TABLE := GetExtendedTcpTable(PROCESS_TABLE))
+		if !(TCP_TABLE := GetExtendedTcpTable(PROCESS_TABLE, ResolveAddr))
 		{
 			Main.Opt("+OwnDialogs")
 			MsgBox("GetExtendedTcpTable failed", "TCPView Error", "T5 16")
@@ -549,7 +669,7 @@ NetStat()
 
 	if (CB2.Value)
 	{
-		if !(TCP6_TABLE := GetExtendedTcp6Table(PROCESS_TABLE))
+		if !(TCP6_TABLE := GetExtendedTcp6Table(PROCESS_TABLE, ResolveAddr))
 		{
 			Main.Opt("+OwnDialogs")
 			MsgBox("GetExtendedTcp6Table failed", "TCPView Error", "T5 16")
