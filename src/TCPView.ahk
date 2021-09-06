@@ -8,11 +8,12 @@
 
 ; GLOBALS =======================================================================================================================
 
-app := Map("name", "TCPView", "version", "0.0.2", "release", "2021-08-30", "author", "jNizM", "licence", "MIT")
+app := Map("name", "TCPView", "version", "0.3", "release", "2021-09-04", "author", "jNizM", "licence", "MIT")
 
 LV_Header  := ["Process Name", "Process ID", "Protocol", "State", "Local Address", "Local Port", "Remote Address", "Remote Port", "Create Time", "Module Name"]
 LV_Options := ["150 Text Left", "100 Integer Right", "80 Text Center", "80 Text Left", "150 Integer Left", "90 Integer Right", "150 Integer Left", "90 Integer Right", "140 Text Right", "180 Text Left"]
 SB_Info    := [" Endpoints:", "Established:", "Listening:", "Time Wait:", "Close Wait:", "Update:", "States: (All)"]
+SortCol    := 0
 
 
 ; GUI ===========================================================================================================================
@@ -355,6 +356,9 @@ GetExtendedUdpTable(PROCESS_TABLE)
 				UDP_ROW["ModuleName"]      := GetOwnerModuleFromUdpEntry(UDP.Ptr + Offset)
 				UDP_ROW["IconNumber"]      := OwningPID ? PROCESS_TABLE[OwningPID]["IconNumber"] : 9999999
 				UDP_ROW["Protocol"]        := "UDP"
+				UDP_ROW["State"]           := ""
+				UDP_ROW["RemoteAddr"]      := "*"
+				UDP_ROW["RemotePort"]      := ""
 				UDP_TABLE[A_Index]         := UDP_ROW
 			}
 		}
@@ -393,6 +397,9 @@ GetExtendedUdp6Table(PROCESS_TABLE)
 				UDP6_ROW["ModuleName"]      := GetOwnerModuleFromUdp6Entry(UDP6.Ptr + Offset)
 				UDP6_ROW["IconNumber"]      := OwningPID ? PROCESS_TABLE[OwningPID]["IconNumber"] : 9999999
 				UDP6_ROW["Protocol"]        := "UDPv6"
+				UDP6_ROW["State"]           := ""
+				UDP6_ROW["RemoteAddr"]      := "*"
+				UDP6_ROW["RemotePort"]      := ""
 				UDP6_TABLE[A_Index]         := UDP6_ROW
 			}
 		}
@@ -518,14 +525,12 @@ CreateTime(FileTime)
 NetStat()
 {
 	Interval := (DDL1.Value = 1) ? 2000 : (DDL1.Value = 2) ? 5000 : (DDL1.Value = 3) ? 10000 : 5000
+	LVCount := 0, TCPCount := 0, TCP6Count := 0, UDPCount := 0, UDP6Count := 0, LV_TABLE := []
 	SetTimer NetStat, Interval
-
-	Main.Opt("+OwnDialogs")
-	LV.Opt("-Redraw")
-	LV.Delete()
 
 	if !(PROCESS_TABLE := Process32())
 	{
+		Main.Opt("+OwnDialogs")
 		MsgBox("Process32 failed", "TCPView Error", "T5 16")
 		ExitApp
 	}
@@ -534,57 +539,68 @@ NetStat()
 	{
 		if !(TCP_TABLE := GetExtendedTcpTable(PROCESS_TABLE))
 		{
+			Main.Opt("+OwnDialogs")
 			MsgBox("GetExtendedTcpTable failed", "TCPView Error", "T5 16")
 			ExitApp
 		}
+		TCPCount := TCP_TABLE.Count
 		for i, v in TCP_TABLE
-		{
-			v := TCP_TABLE[i]
-			LV.Add("Icon" . v["IconNumber"], v["ProcessName"], v["OwningPID"], v["Protocol"], v["State"], v["LocalAddr"], v["LocalPort"], v["RemoteAddr"], v["RemotePort"], v["CreateTimestamp"], v["ModuleName"])
-		}
+			LV_TABLE.Push(TCP_TABLE[i])
 	}
 
 	if (CB2.Value)
 	{
 		if !(TCP6_TABLE := GetExtendedTcp6Table(PROCESS_TABLE))
 		{
+			Main.Opt("+OwnDialogs")
 			MsgBox("GetExtendedTcp6Table failed", "TCPView Error", "T5 16")
 			ExitApp
 		}
+		TCP6Count := TCP6_TABLE.Count
 		for i, v in TCP6_TABLE
-		{
-			v := TCP6_TABLE[i]
-			LV.Add("Icon" . v["IconNumber"], v["ProcessName"], v["OwningPID"], v["Protocol"], v["State"], v["LocalAddr"], v["LocalPort"], v["RemoteAddr"], v["RemotePort"], v["CreateTimestamp"], v["ModuleName"])
-		}
+			LV_TABLE.Push(TCP6_TABLE[i])
 	}
 
 	if (CB3.Value)
 	{
 		if !(UDP_TABLE := GetExtendedUdpTable(PROCESS_TABLE))
 		{
+			Main.Opt("+OwnDialogs")
 			MsgBox("GetExtendedUdpTable failed", "TCPView Error", "T5 16")
 			ExitApp
 		}
+		UDPCount := UDP_TABLE.Count
 		for i, v in UDP_TABLE
-		{
-			v := UDP_TABLE[i]
-			LV.Add("Icon" . v["IconNumber"], v["ProcessName"], v["OwningPID"], v["Protocol"], "", v["LocalAddr"], v["LocalPort"], "*", "", v["CreateTimestamp"], v["ModuleName"])
-		}
+			LV_TABLE.Push(UDP_TABLE[i])
 	}
 
 	if (CB4.Value)
 	{
 		if !(UDP6_TABLE := GetExtendedUdp6Table(PROCESS_TABLE))
 		{
+			Main.Opt("+OwnDialogs")
 			MsgBox("GetExtendedUdp6Table failed", "TCPView Error", "T5 16")
 			ExitApp
 		}
+		UDP6Count := UDP6_TABLE.Count
 		for i, v in UDP6_TABLE
-		{
-			v := UDP6_TABLE[i]
-			LV.Add("Icon" . v["IconNumber"], v["ProcessName"], v["OwningPID"], v["Protocol"], "", v["LocalAddr"], v["LocalPort"], "*", "", v["CreateTimestamp"], v["ModuleName"])
-		}
+			LV_TABLE.Push(UDP6_TABLE[i])
 	}
+
+	LV.Opt("-Redraw")
+
+	loop LV_TABLE.Length
+	{
+		v := LV_TABLE[A_Index]
+		if (A_Index > LV.GetCount())
+			LV.Add("Icon" . v["IconNumber"], v["ProcessName"], v["OwningPID"], v["Protocol"], v["State"], v["LocalAddr"], v["LocalPort"], v["RemoteAddr"], v["RemotePort"], v["CreateTimestamp"], v["ModuleName"])
+		else
+			LV.Modify(A_Index, "Icon" . v["IconNumber"], v["ProcessName"], v["OwningPID"], v["Protocol"], v["State"], v["LocalAddr"], v["LocalPort"], v["RemoteAddr"], v["RemotePort"], v["CreateTimestamp"], v["ModuleName"])
+	}
+
+	if ((Diff := LV.GetCount() - (TCPCount + TCP6Count + UDPCount + UDP6Count)) > 0)
+		loop Diff
+			LV.Delete(LV.GetCount() - A_Index)
 
 	LV.Opt("+Redraw")
 
