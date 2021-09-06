@@ -8,7 +8,7 @@
 
 ; GLOBALS =======================================================================================================================
 
-app := Map("name", "TCPView", "version", "0.3", "release", "2021-09-04", "author", "jNizM", "licence", "MIT")
+app := Map("name", "TCPView", "version", "0.3.1", "release", "2021-09-06", "author", "jNizM", "licence", "MIT")
 
 LV_Header  := ["Process Name", "Process ID", "Protocol", "State", "Local Address", "Local Port", "Remote Address", "Remote Port", "Create Time", "Module Name"]
 LV_Options := ["150 Text Left", "100 Integer Right", "80 Text Center", "80 Text Left", "150 Integer Left", "90 Integer Right", "150 Integer Left", "90 Integer Right", "140 Text Right", "180 Text Left"]
@@ -599,7 +599,7 @@ NetStat()
 	}
 
 	if ((Diff := LV.GetCount() - (TCPCount + TCP6Count + UDPCount + UDP6Count)) > 0)
-		loop Diff
+		loop Diff > 0
 			LV.Delete(LV.GetCount() - A_Index)
 
 	LV.Opt("+Redraw")
